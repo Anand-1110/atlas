@@ -1,0 +1,37 @@
+# ===== Node / React =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Environment Variables =====
+.env
+.env.*
+!.env.example
+
+# ===== Docker =====
+*.tar
+docker-compose.override.yml
+
+# ===== Terraform =====
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+
+# ===== Kubernetes / Helm =====
+*.tgz
+charts/*/charts/
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+logs/
+*.log
