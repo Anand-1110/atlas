@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlas-mongo
+  template:
+    metadata:
+      labels:
+        app: atlas-mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+          ports:
+            - containerPort: 27017
