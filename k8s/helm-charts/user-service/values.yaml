@@ -1,3 +1,3 @@
 replicas: 3
-image: user-service
+image: anand0420/user-service:v2
 mongoUrl: mongodb://atlas-mongo:27017/users
