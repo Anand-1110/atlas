@@ -1,3 +1,0 @@
-replicas: 2
-image: user-service
-mongoUrl: mongodb://atlas-mongo:27017/users
