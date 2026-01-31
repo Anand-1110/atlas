@@ -1,3 +1,3 @@
 replicas: 2
-image: order-service
+image: order-service:v2
 postgresUrl: postgres://postgres:postgres@atlas-postgres:5432/orders

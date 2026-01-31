@@ -30,6 +30,8 @@ services:
     container_name: order-service
     ports:
       - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/orders?schema=public
     env_file:
       - ./apps/order-service/.env
     depends_on:
