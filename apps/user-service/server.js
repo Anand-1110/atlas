@@ -15,7 +15,7 @@ const register = new client.Registry();
 
 // collect default Node.js metrics
 client.collectDefaultMetrics({
-  register,
+  register
 });
 
 // expose metrics endpoint
