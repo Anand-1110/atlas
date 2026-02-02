@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const client = require("prom-client");
+const logger = require("./logger");
 
 const app = express();
 const prisma = new PrismaClient();
@@ -16,21 +17,37 @@ client.collectDefaultMetrics({
   register
 });
 
+app.get("/metrics", async (req, res) => {
+  res.setHeader("Content-Type", register.contentType);
+  res.end(await register.metrics());
+});
+
+/* ---------------- REQUEST LOGGING MIDDLEWARE ---------------- */
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('HTTP Request', {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`
+    });
+  });
+  next();
+});
+
 /* ---------------- DATABASE CONNECTION ---------------- */
 
 prisma.$connect()
-  .then(() => console.log("PostgreSQL connected via Prisma"))
-  .catch(err => console.log("Database connection error:", err));
+  .then(() => logger.info("PostgreSQL connected via Prisma"))
+  .catch(err => logger.error("Database connection error", { error: err.message }));
 
 /* ---------------- ROUTES ---------------- */
 
 app.get("/health", (req, res) => {
-  res.send("Order Service is running");
-});
-
-app.get("/metrics", async (req, res) => {
-  res.setHeader("Content-Type", register.contentType);
-  res.end(await register.metrics());
+  res.json({ status: "healthy", service: "order-service" });
 });
 
 // CREATE Order
@@ -45,8 +62,10 @@ app.post("/orders", async (req, res) => {
         price
       }
     });
+    logger.info("Order created", { orderId: order.id, userId, product });
     res.status(201).json(order);
   } catch (error) {
+    logger.error("Failed to create order", { error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -54,9 +73,13 @@ app.post("/orders", async (req, res) => {
 // GET All Orders
 app.get("/orders", async (req, res) => {
   try {
-    const orders = await prisma.order.findMany();
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    logger.info("Retrieved all orders", { count: orders.length });
     res.json(orders);
   } catch (error) {
+    logger.error("Failed to retrieve orders", { error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -68,10 +91,13 @@ app.get("/orders/:id", async (req, res) => {
       where: { id: parseInt(req.params.id) }
     });
     if (!order) {
+      logger.warn("Order not found", { orderId: req.params.id });
       return res.status(404).json({ error: "Order not found" });
     }
+    logger.info("Retrieved order", { orderId: order.id });
     res.json(order);
   } catch (error) {
+    logger.error("Failed to retrieve order", { orderId: req.params.id, error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -79,13 +105,24 @@ app.get("/orders/:id", async (req, res) => {
 // UPDATE Order
 app.put("/orders/:id", async (req, res) => {
   try {
-    const { status } = req.body;
+    const { userId, product, quantity, price } = req.body;
     const order = await prisma.order.update({
       where: { id: parseInt(req.params.id) },
-      data: { status }
+      data: {
+        ...(userId && { userId }),
+        ...(product && { product }),
+        ...(quantity && { quantity }),
+        ...(price && { price })
+      }
     });
+    logger.info("Order updated", { orderId: order.id });
     res.json(order);
   } catch (error) {
+    if (error.code === 'P2025') {
+      logger.warn("Order not found for update", { orderId: req.params.id });
+      return res.status(404).json({ error: "Order not found" });
+    }
+    logger.error("Failed to update order", { orderId: req.params.id, error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -96,20 +133,35 @@ app.delete("/orders/:id", async (req, res) => {
     await prisma.order.delete({
       where: { id: parseInt(req.params.id) }
     });
-    res.status(204).send();
+    logger.info("Order deleted", { orderId: req.params.id });
+    res.json({ message: "Order deleted successfully" });
   } catch (error) {
+    if (error.code === 'P2025') {
+      logger.warn("Order not found for deletion", { orderId: req.params.id });
+      return res.status(404).json({ error: "Order not found" });
+    }
+    logger.error("Failed to delete order", { orderId: req.params.id, error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
 
-/* ---------------- SERVER ---------------- */
+/* ---------------- GRACEFUL SHUTDOWN ---------------- */
 
-app.listen(5000, () => {
-  console.log("Order Service running on port 5000");
-});
-
-// Graceful shutdown
-process.on("SIGINT", async () => {
+process.on('SIGINT', async () => {
+  logger.info("Shutting down gracefully...");
   await prisma.$disconnect();
   process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info("Shutting down gracefully...");
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+/* ---------------- START SERVER ---------------- */
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  logger.info(`Order Service started`, { port: PORT });
 });

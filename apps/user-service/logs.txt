@@ -1,0 +1,12 @@
+2026-02-02T18:01:11.368Z [user-service] info: User Service started {"port":4000}
+2026-02-02T18:01:11.432Z [user-service] info: MongoDB connected successfully 
+2026-02-02T18:06:40.387Z [user-service] INFO: User Service started {"port":4000}
+2026-02-02T18:06:40.411Z [user-service] INFO: MongoDB connected successfully 
+2026-02-02T18:09:14.269Z [user-service] INFO: TEST LOG {"test":"data"}
+2026-02-02T18:10:11.861Z [user-service] INFO: User Service started {"port":4000}
+2026-02-02T18:10:11.883Z [user-service] INFO: MongoDB connected successfully 
+2026-02-02T18:15:22.934Z [user-service] INFO: User Service started {"port":4000}
+2026-02-02T18:15:22.956Z [user-service] INFO: MongoDB connected successfully 
+2026-02-02T18:18:31.929Z [user-service] INFO: User Service started {"port":4000}
+2026-02-02T18:18:31.948Z [user-service] INFO: MongoDB connected successfully 
+2026-02-02T18:19:11.688Z [user-service] INFO: HTTP Request: GET /health 200 2.472 ms 

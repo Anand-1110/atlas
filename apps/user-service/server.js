@@ -1,46 +1,150 @@
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-
-// ✅ ADD THIS
 const client = require("prom-client");
+const logger = require("./logger");
+const morgan = require("morgan");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
 
-// ==============================
-// PROMETHEUS METRICS SETUP
-// ==============================
+/* ---------------- PROMETHEUS SETUP ---------------- */
+
 const register = new client.Registry();
 
-// collect default Node.js metrics
 client.collectDefaultMetrics({
   register
 });
 
-// expose metrics endpoint
 app.get("/metrics", async (req, res) => {
   res.set("Content-Type", register.contentType);
   res.end(await register.metrics());
 });
 
-// ==============================
-// CONNECT MONGODB
-// ==============================
-mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.log(err));
+/* ---------------- REQUEST LOGGING WITH MORGAN ---------------- */
 
-// ==============================
-// HEALTH ENDPOINT
-// ==============================
-app.get("/health", (req, res) => {
-  res.send("User Service is running");
+// Create a write stream to logs.txt
+const accessLogStream = fs.createWriteStream(path.join(__dirname, 'requests.log'), { flags: 'a' });
+
+// Morgan format: method url status response-time
+const morganFormat = ':method :url :status :response-time ms';
+
+// Log HTTP requests to both console AND file
+app.use(morgan(morganFormat, {
+  stream: {
+    write: (message) => {
+      const trimmed = message.trim();
+      logger.info(`HTTP Request: ${trimmed}`);
+      accessLogStream.write(`${new Date().toISOString()} - ${trimmed}\n`);
+    }
+  }
+}));
+
+/* ---------------- MONGODB CONNECTION ---------------- */
+
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => logger.info("MongoDB connected successfully"))
+  .catch(err => logger.error("MongoDB connection failed", { error: err.message }));
+
+/* ---------------- USER MODEL ---------------- */
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now }
 });
 
-// ==============================
-// START SERVER
-// ==============================
-app.listen(4000, () => {
-  console.log("User Service running on port 4000");
+const User = mongoose.model('User', userSchema);
+
+/* ---------------- ROUTES ---------------- */
+
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy", service: "user-service" });
+});
+
+// CREATE User
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.create({ name, email });
+    logger.info("User created", { userId: user._id, email: user.email });
+    res.status(201).json(user);
+  } catch (error) {
+    logger.error("Failed to create user", { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET All Users
+app.get("/users", async (req, res) => {
+  try {
+    const users = await User.find();
+    logger.info("Retrieved all users", { count: users.length });
+    res.json(users);
+  } catch (error) {
+    logger.error("Failed to retrieve users", { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET User by ID
+app.get("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      logger.warn("User not found", { userId: req.params.id });
+      return res.status(404).json({ error: "User not found" });
+    }
+    logger.info("Retrieved user", { userId: user._id });
+    res.json(user);
+  } catch (error) {
+    logger.error("Failed to retrieve user", { userId: req.params.id, error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// UPDATE User
+app.put("/users/:id", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { name, email },
+      { new: true, runValidators: true }
+    );
+    if (!user) {
+      logger.warn("User not found for update", { userId: req.params.id });
+      return res.status(404).json({ error: "User not found" });
+    }
+    logger.info("User updated", { userId: user._id });
+    res.json(user);
+  } catch (error) {
+    logger.error("Failed to update user", { userId: req.params.id, error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE User
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      logger.warn("User not found for deletion", { userId: req.params.id });
+      return res.status(404).json({ error: "User not found" });
+    }
+    logger.info("User deleted", { userId: req.params.id });
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    logger.error("Failed to delete user", { userId: req.params.id, error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ---------------- START SERVER ---------------- */
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  logger.info(`User Service started`, { port: PORT });
 });
