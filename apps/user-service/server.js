@@ -4,8 +4,6 @@ const mongoose = require("mongoose");
 const client = require("prom-client");
 const logger = require("./logger");
 const morgan = require("morgan");
-const fs = require("fs");
-const path = require("path");
 
 const app = express();
 app.use(express.json());
@@ -23,24 +21,10 @@ app.get("/metrics", async (req, res) => {
   res.end(await register.metrics());
 });
 
-/* ---------------- REQUEST LOGGING WITH MORGAN ---------------- */
-
-// Create a write stream to logs.txt
-const accessLogStream = fs.createWriteStream(path.join(__dirname, 'requests.log'), { flags: 'a' });
+/* ---------------- REQUEST LOGGING WITH MORGAN (Console Only) ---------------- */
 
 // Morgan format: method url status response-time
-const morganFormat = ':method :url :status :response-time ms';
-
-// Log HTTP requests to both console AND file
-app.use(morgan(morganFormat, {
-  stream: {
-    write: (message) => {
-      const trimmed = message.trim();
-      logger.info(`HTTP Request: ${trimmed}`);
-      accessLogStream.write(`${new Date().toISOString()} - ${trimmed}\n`);
-    }
-  }
-}));
+app.use(morgan(':method :url :status :response-time ms'));
 
 /* ---------------- MONGODB CONNECTION ---------------- */
 
