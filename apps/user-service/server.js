@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const client = require("prom-client");
 const logger = require("./logger");
 const morgan = require("morgan");
+const { child } = require("winston");
 
 const app = express();
 app.use(express.json());
