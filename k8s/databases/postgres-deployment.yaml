@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-postgres
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlas-postgres
+  template:
+    metadata:
+      labels:
+        app: atlas-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "postgres"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_DB
+              value: "orders"
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlas-postgres
+  namespace: default
+spec:
+  selector:
+    app: atlas-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP

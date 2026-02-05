@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-mongo
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlas-mongo
+  template:
+    metadata:
+      labels:
+        app: atlas-mongo
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-storage
+          persistentVolumeClaim:
+            claimName: mongo-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlas-mongo
+  namespace: default
+spec:
+  selector:
+    app: atlas-mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
+  type: ClusterIP
