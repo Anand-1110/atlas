@@ -35,3 +35,8 @@ Thumbs.db
 # ===== Logs =====
 logs/
 *.log
+
+# Notes and temporary files
+notes/
+*.tmp
+*.bak
