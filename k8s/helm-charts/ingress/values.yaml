@@ -1,1 +1,25 @@
-dummy: true
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: atlas.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+
+# Service Routes
+routes:
+  - name: users
+    path: /users(/|$)(.*)
+    serviceName: user-service
+    servicePort: 4000
+  
+  - name: orders
+    path: /orders(/|$)(.*)
+    serviceName: order-service
+    servicePort: 5000
+  
+  - name: grafana
+    path: /grafana(/|$)(.*)
+    serviceName: monitoring-grafana
+    servicePort: 80

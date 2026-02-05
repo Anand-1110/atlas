@@ -1,26 +1,24 @@
+{{- if .Values.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: atlas-ingress
+  name: {{ .Chart.Name }}
+  namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
 spec:
+  ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: atlas.local
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
-          - path: /users(/|$)(.*)
+          {{- range .Values.routes }}
+          - path: {{ .path }}
             pathType: ImplementationSpecific
             backend:
               service:
-                name: user-service
+                name: {{ .serviceName }}
                 port:
-                  number: 4000
-
-          - path: /orders(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: order-service
-                port:
-                  number: 5000
+                  number: {{ .servicePort }}
+          {{- end }}
+{{- end }}
