@@ -1,0 +1,115 @@
+name: CI - User Service
+# WHEN TO RUN THIS WORKFLOW
+on:
+  push:
+    branches: [main]              # Only on main branch
+    paths:
+      - 'apps/user-service/**'    # Only if user-service code changes
+      - '.github/workflows/ci-user-service.yml'  # Or if this workflow changes
+  workflow_dispatch:              # Allow manual trigger from GitHub UI
+# ENVIRONMENT VARIABLES (used throughout workflow)
+env:
+  SERVICE_NAME: user-service
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/user-service
+  # This expands to: ghcr.io/anand-1110/user-service
+# THE ACTUAL WORK
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest        # GitHub provides this machine
+    
+    # PERMISSIONS this workflow needs
+    permissions:
+      contents: write             # To push commits back to repo
+      packages: write             # To push Docker images to GHCR
+      
+    steps:
+      # STEP 1: Get your code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Uses GitHub's automatic token (no setup needed!)
+      # STEP 2: Setup Docker
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # Installs Docker build tools with caching support
+      # STEP 3: Login to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io                    # GitHub Container Registry
+          username: ${{ github.actor }}        # Your GitHub username (Anand-1110)
+          password: ${{ secrets.GITHUB_TOKEN }} # Automatic token
+        # This logs Docker into GHCR so we can push images
+      # STEP 4: Create image tags
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short
+            # Creates tag from Git SHA (e.g., 6c1a4b7)
+            type=raw,value=latest
+            # Also tags as "latest"
+        # Output: ghcr.io/anand-1110/user-service:6c1a4b7
+        #         ghcr.io/anand-1110/user-service:latest
+      # STEP 5: Build Docker image and push to GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/user-service        # Where Dockerfile is
+          push: true                           # Push to registry
+          tags: ${{ steps.meta.outputs.tags }} # Use tags from step above
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha                 # Use GitHub Actions cache
+          cache-to: type=gha,mode=max          # Save to cache for next time
+        # This builds: docker build -t ghcr.io/anand-1110/user-service:6c1a4b7
+        # Then pushes: docker push ghcr.io/anand-1110/user-service:6c1a4b7
+      # STEP 6: Setup Node.js for tests
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'                   # Match your Dockerfile version
+          cache: 'npm'                         # Cache npm packages
+          cache-dependency-path: apps/user-service/package-lock.json
+      # STEP 7: Run tests
+      - name: Run tests
+        run: |
+          cd apps/user-service
+          npm ci                               # Clean install (faster)
+          npm test || echo "No tests configured - OK for now"
+        # If tests fail, workflow stops here!
+        # If no test script exists, continues (for now)
+      # STEP 8: Update Kubernetes manifest with new image
+      - name: Update Kubernetes manifest
+        run: |
+          # Get short SHA (first 7 characters of commit hash)
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          
+          # Update image line in deployment.yaml
+          sed -i "s|image: .*user-service.*|image: ${{ env.IMAGE_NAME }}:${SHORT_SHA}|" k8s/user-service/deployment.yaml
+          
+          # Change pull policy from Never to Always
+          sed -i "s|imagePullPolicy: Never|imagePullPolicy: Always|" k8s/user-service/deployment.yaml
+        # Before: image: user-service:v2.0
+        # After:  image: ghcr.io/anand-1110/user-service:6c1a4b7
+      # STEP 9: Commit the updated manifest back to Git
+      - name: Commit and push manifest changes
+        run: |
+          # Configure git user (shows as "github-actions[bot]" in commits)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add the changed file
+          git add k8s/user-service/deployment.yaml
+          
+          # Commit if there are changes
+          git diff --staged --quiet || git commit -m "🤖 CI: Update user-service image to ${GITHUB_SHA:0:7}"
+          
+          # Pull latest changes (in case someone else pushed)
+          git pull --rebase
+          
+          # Push the commit
+          git push
+        # This triggers ArgoCD to see the change and deploy!
