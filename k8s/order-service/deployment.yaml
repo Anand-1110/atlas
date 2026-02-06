@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: ghcr.io/Anand-1110/order-service:dc72b68
+          image: ghcr.io/anand-1110/order-service:55bf522
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
