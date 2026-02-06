@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 env:
   SERVICE_NAME: order-service
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/order-service
+  # Convert username to lowercase for Docker compatibility
+  IMAGE_NAME: ghcr.io/anand-1110/order-service
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

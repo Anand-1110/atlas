@@ -10,8 +10,9 @@ on:
 # ENVIRONMENT VARIABLES (used throughout workflow)
 env:
   SERVICE_NAME: user-service
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/user-service
-  # This expands to: ghcr.io/anand-1110/user-service
+  # Convert username to lowercase for Docker compatibility
+  REPO_OWNER_LOWER: ${{ github.repository_owner }}
+  IMAGE_NAME: ghcr.io/anand-1110/user-service
 # THE ACTUAL WORK
 jobs:
   build-and-deploy:
