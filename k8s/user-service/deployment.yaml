@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: ghcr.io/anand-1110/user-service:ce5c76a
+          image: ghcr.io/anand-1110/user-service:639de13
           imagePullPolicy: Always
           ports:
             - containerPort: 4000
