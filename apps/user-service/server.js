@@ -45,8 +45,14 @@ const User = mongoose.model('User', userSchema);
 
 /* ---------------- ROUTES ---------------- */
 
-app.get("/health", (req, res) => {
-  res.json({ status: "healthy", service: "user-service" });
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    version: '3.0',
+    service: 'user-service',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // CREATE User
